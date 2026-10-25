@@ -1,4 +1,4 @@
-name: Compilar mod
+name: Compilar mod2
 
 on:
   push:
