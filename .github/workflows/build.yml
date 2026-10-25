@@ -1,1 +1,46 @@
-
+name: Compilar mod
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - name: Localizar el proyecto (suelto, en subcarpeta o dentro de un zip)
+        run: |
+          B=$(find . -name build.gradle -not -path './.git/*' | head -n 1)
+          if [ -z "$B" ] && [ -f nucleo-arena.zip ]; then
+            mkdir proyecto && unzip -q nucleo-arena.zip -d proyecto
+            B=$(find proyecto -name build.gradle | head -n 1)
+          fi
+          if [ -z "$B" ]; then
+            echo "No hay build.gradle en el repositorio. Archivos encontrados:"
+            find . -not -path './.git/*' -type f | head -60
+            exit 1
+          fi
+          echo "RAIZ=$(dirname "$B")" >> "$GITHUB_ENV"
+          echo "Proyecto en: $(dirname "$B")"
+ 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+ 
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.5.1
+ 
+      - name: Compilar
+        working-directory: ${{ env.RAIZ }}
+        run: gradle build --stacktrace
+ 
+      - name: Guardar el jar (sin el -sources)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nucleo-arena-jar
+          path: |
+            ${{ env.RAIZ }}/build/libs/*.jar
+            !${{ env.RAIZ }}/build/libs/*-sources.jar
